@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+ 
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="Chart.js"></script>
+    <title>Roti2 Log</title>
+    <style type="text/css">
+	
+        body {
+            display: flex;
+            justify-content: center;
+            width:100%;
+            height:100%;
+        }
+		textarea
+		{
+			border:1px solid #999999;
+			width:98%;
+			margin:5px 0;
+			padding:1%;
+		}
+    </style>
+</head>
+<body>
+    <div style="width:50%;">
+        <div style="display:inline-block; vertical-align:top; display:flex; justify-content:center;">
+            <form>
+            <input type="text" id="url" value="ws://192.168.1.7/slave/status" />
+            <input type="submit" id="button" value="Connect" onclick="button_connect(); return false;" />
+			<input type="submit" id="button" value="Clear" onclick="button_clear(); return false;" />
+            <input type="button" value="Save as TXT" onclick='downloadCSV(); return false;' />
+            </form>
+        </div>
+        </br>
+        <div > 
+            <textarea id="log" rows="35"></textarea>
+        </div> 
+    </div>
+</body>
+<script>
+var socket;
+var connected = false;
+const roti_log = [];
+
+const log = document.getElementById('log');
+
+function prepare_for_connect() {
+    document.getElementById('url').disabled = false;
+    document.getElementById('button').value = "Connect";
+}
+
+convertArrayOfObjectsToCSV = () => {  
+    if (!roti_log.length) return;
+
+    const columnDelimiter = ',';
+    const lineDelimiter = '\n';
+    let result = '';
+    for (var i=0; i<roti_log.length; i++) {
+        result += roti_log[i]
+        result += lineDelimiter;
+    }
+    return result;
+}
+
+downloadCSV = () => {
+    let csv = convertArrayOfObjectsToCSV();
+    if (!csv) return;
+    const filename = 'roti_log.txt';
+    if (!csv.match(/^data:text\/csv/i)) {
+        csv = 'data:text/csv;charset=utf-8,' + csv;
+    }
+    const data = encodeURI(csv);
+    const link = document.createElement('a');
+    link.setAttribute('href', data);
+    link.setAttribute('download', filename);
+    link.click();
+}
+
+function draw(data){
+	if(data != null) {
+		log.value += data + "\n";
+		roti_log.push(data)
+	}
+}
+
+function button_clear() {
+	log.value = "";
+	roti_log.splice(0, roti_log.length)
+}
+
+function button_connect() {
+    if (connected) {
+        socket.close();
+        connected = false;
+    } else {
+        document.getElementById('url').disabled = true;
+        document.getElementById('button').value = "Disconnect";
+        connected = true;
+		
+		roti_log.splice(0, roti_log.length)
+		
+        socket = new WebSocket(document.getElementById('url').value);
+        socket.binaryType = 'blob'
+
+        socket.addEventListener('open', function (event) {
+            console.log("opened")
+            //socket.send("opened");
+        });
+
+        socket.addEventListener('close', function (event) {
+            console.log("closed")
+            connected = false;
+            prepare_for_connect();
+        });
+        socket.onerror = function(error) {
+            alert("websocket error");
+        };
+
+        socket.addEventListener('message', function (event) {
+            if (event.data instanceof Blob) {
+                reader = new FileReader();
+                reader.onload = () => {
+                    //console.log(reader.result);
+                    draw(reader.result)
+                };
+                reader.readAsText(event.data);
+            } else {
+                //console.log(event.data);
+                draw(event.data)
+            }
+            
+        });
+    }
+} 
+
+</script>
+</html>

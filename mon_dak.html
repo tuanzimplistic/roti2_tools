@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+ 
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="Chart.js"></script>
+    <title>Roti temp Chart</title>
+    <style type="text/css">
+        body {
+            display: flex;
+            justify-content: center;
+            max-width:100%;
+            max-height:100%;
+        }
+    </style>
+</head>
+<body>
+    <div style="width:50%;">
+        <div style="display:inline-block; vertical-align:top; display:flex; justify-content:center;">
+            <form>
+            <input type="text" id="url" value="ws://127.0.0.1:13254" />
+            <input type="submit" id="button" value="Connect" onclick="button_connect(); return false;" />
+            <input type="button" value="Save as CSV" onclick='downloadCSV({ filename: "mon_dak.csv" }); return false;' />
+            </form>
+        </div>
+        </br>
+        <div > 
+            <canvas id="vtCanvas"></canvas> 
+        </div>
+        <div> 
+            <canvas id="knCanvas"></canvas> 
+        </div> 
+        <div> 
+            <canvas id="wtCanvas"></canvas> 
+        </div> 
+    </div>
+</body>
+<script>
+
+
+class Graph {
+    constructor(context, chartType, chartName){
+        this.chart = new Chart(context, {
+            type: chartType,
+            data: {
+                datasets: [
+                {
+                    borderWidth: 1,
+                    label: chartName,
+                    data: []
+                }]
+            },
+            options: {
+                legend: {display: true},
+            }
+        });
+    }
+
+    prop() {
+        return this.chart;
+    }
+
+    draw(data) {
+        if(data.length > 1) {
+            this.chart.data.labels.push(data[0])
+            for(let i=1; i<data.length; i++) {
+                this.chart.data.datasets[i-1].data.push(parseFloat(data[i]))
+            }
+            this.chart.update();
+        } else {
+            console.log('not enough data')
+        }
+    }
+
+    clean() {
+        this.chart.destroy();
+    }
+}
+
+var socket;
+var timeAxis;
+var vtValue;
+var knValue;
+var wtValue;
+var connected = false;
+var vt = null;
+var kn = null;
+
+function prepare_for_connect() {
+    document.getElementById('url').disabled = false;
+    document.getElementById('button').value = "Connect";
+}
+
+convertArrayOfObjectsToCSV = () => {  
+    if (!vt.prop().data.datasets[0].data.length || !kn.prop().data.datasets[0].data.length) return;
+    const columnDelimiter = ',';
+    const lineDelimiter = '\n';
+    const keys = ["Step","VT", "KN", "WT"];
+    let result = '';
+    result += keys.join(columnDelimiter);
+    result += lineDelimiter;
+    for (var i=0; i<vt.prop().data.datasets[0].data.length; i++) {
+        result += i
+        result += columnDelimiter;
+        result += vt.prop().data.datasets[0].data[i]
+        result += columnDelimiter;
+        result += kn.prop().data.datasets[0].data[i]
+        result += columnDelimiter;
+        result += wt.prop().data.datasets[0].data[i]
+        result += lineDelimiter;
+    }
+    return result;
+}
+
+downloadCSV = args => {
+    let csv = convertArrayOfObjectsToCSV();
+    if (!csv) return;
+    const filename = args.filename || 'mon_dak.csv';
+    if (!csv.match(/^data:text\/csv/i)) {
+        csv = 'data:text/csv;charset=utf-8,' + csv;
+    }
+    const data = encodeURI(csv);
+    const link = document.createElement('a');
+    link.setAttribute('href', data);
+    link.setAttribute('download', filename);
+    link.click();
+}
+
+function draw(data){
+    const obj = JSON.parse(data);
+    if(Object.values(obj).includes("VT")) {
+        vtValue = obj["position"];
+    }
+    if(Object.values(obj).includes("KN")) {
+        knValue = obj["speed"];
+        wtValue = obj["wt"];
+    }
+    vt.draw([timeAxis, vtValue])
+    kn.draw([timeAxis, knValue])
+    wt.draw([timeAxis, wtValue])
+    timeAxis++;
+}
+
+function button_connect() {
+    if (connected) {
+        socket.close();
+        connected = false;
+        document.getElementById('button').value = "Connect";
+    } else {
+        document.getElementById('url').disabled = true;
+        document.getElementById('button').value = "Disconnect";
+        connected = true;
+        timeAxis = 0;
+        vtValue = 0;
+        knValue = 0;
+        wtValue = 0;
+        
+        if(vt != null){
+            vt.clean();
+            vt = null;
+        }
+
+        if(kn != null){
+            kn.clean();
+            kn = null;
+        }
+
+        var vtCtx = document.getElementById("vtCanvas");
+        var knCtx = document.getElementById("knCanvas");
+        var wtCtx = document.getElementById("wtCanvas");
+        vt = new Graph(vtCtx, 'line', 'VT Position');
+        vt.prop().data.datasets[0].borderColor = "#0ce861";
+
+        kn = new Graph(knCtx, 'line', 'KN Speed');
+        kn.prop().data.datasets[0].borderColor = "#0ce861";
+
+        wt = new Graph(wtCtx, 'line', 'WT');
+        wt.prop().data.datasets[0].borderColor = "#0ce861";
+
+        socket = new WebSocket(document.getElementById('url').value);
+        socket.binaryType = 'blob'
+
+        socket.addEventListener('open', function (event) {
+            console.log("connected")
+            //socket.send("opened");
+        });
+
+        socket.addEventListener('close', function (event) {
+            console.log("closed")
+            connected = false;
+            prepare_for_connect();
+        });
+        socket.onerror = function(error) {
+            alert("websocket error");
+        };
+
+        socket.addEventListener('message', function (event) {
+            if (event.data instanceof Blob) {
+                reader = new FileReader();
+                reader.onload = () => {
+                    //console.log(reader.result);
+                    draw(reader.result)
+                };
+                reader.readAsText(event.data);
+            } else {
+                console.log(event.data);
+                draw(event.data)
+            }
+            
+        });
+    }
+} 
+
+</script>
+</html>

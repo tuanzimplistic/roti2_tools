@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+ 
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="Chart.js"></script>
+    <title>Roti temp Chart</title>
+    <style type="text/css">
+        body {
+            display: flex;
+            justify-content: center;
+            max-width:100%;
+            max-height:100%;
+        }
+    </style>
+</head>
+<body>
+    <div style="width:50%;">
+        <div style="display:inline-block; vertical-align:top; display:flex; justify-content:center;">
+            <form>
+            <input type="text" id="url" value="ws://192.168.1.6/slave/rtlog" />
+            <input type="submit" id="button" value="Connect" onclick="button_connect(); return false;" />
+            <input type="button" value="Save as CSV" onclick='downloadCSV({ filename: "chart.csv" }); return false;' />
+            </form>
+        </div>
+        </br>
+        <div > 
+            <canvas id="tempCanvas"></canvas> 
+        </div>
+        <div> 
+            <canvas id="dcCanvas"></canvas> 
+        </div> 
+    </div>
+</body>
+<script>
+var socket;
+var timeAxis;
+var connected = false;
+var tempChart = null;
+var dcChart = null;
+
+function prepare_for_connect() {
+    document.getElementById('url').disabled = false;
+    document.getElementById('button').value = "Connect";
+}
+
+convertArrayOfObjectsToCSV = () => {  
+    if (!tempChart.data.datasets[0].data.length || !tempChart.data.datasets[1].data.length) return;
+
+    const columnDelimiter = ',';
+    const lineDelimiter = '\n';
+    const keys = ["Top heater temperature", "Bottom heater temperature"];
+    let result = '';
+    result += keys.join(columnDelimiter);
+    result += lineDelimiter;
+    for (var i=0; i<tempChart.data.datasets[0].data.length; i++) {
+        result += tempChart.data.datasets[0].data[i]
+        result += columnDelimiter;
+        result += tempChart.data.datasets[1].data[i]
+        result += lineDelimiter;
+    }
+    return result;
+}
+
+downloadCSV = args => {
+    let csv = convertArrayOfObjectsToCSV();
+    if (!csv) return;
+    const filename = args.filename || 'chart.csv';
+    if (!csv.match(/^data:text\/csv/i)) {
+        csv = 'data:text/csv;charset=utf-8,' + csv;
+    }
+    const data = encodeURI(csv);
+    const link = document.createElement('a');
+    link.setAttribute('href', data);
+    link.setAttribute('download', filename);
+    link.click();
+}
+
+function draw(data){
+    const obj = JSON.parse(data);
+    topTemp = obj["Top heater temperature"];
+    bottomTemp = obj["Bottom heater temperature"];
+    tempChart.data.labels.push(timeAxis)
+    tempChart.data.datasets[0].data.push(parseFloat(topTemp))
+    tempChart.data.datasets[1].data.push(parseFloat(bottomTemp))
+    tempChart.update();
+    if(obj.hasOwnProperty("Top duty cycle") && obj.hasOwnProperty("Bottom duty cycle")){
+        topDc = obj["Top duty cycle"];
+        bottomDc = obj["Bottom duty cycle"];
+        dcChart.data.labels.push(timeAxis)
+        dcChart.data.datasets[0].data.push(parseInt(topDc))
+        dcChart.data.datasets[1].data.push(parseInt(bottomDc))
+        dcChart.update();
+    }
+
+    timeAxis ++;
+}
+
+function button_connect() {
+    if (connected) {
+        socket.close();
+        connected = false;
+    } else {
+        document.getElementById('url').disabled = true;
+        document.getElementById('button').value = "Disconnect";
+        connected = true;
+        timeAxis = 0;
+
+        if(tempChart!=null){
+            tempChart.destroy();
+            tempChart = null;
+        }
+        if(dcChart!=null){
+            dcChart.destroy();
+            dcChart = null;
+        }
+        var tempCtx = document.getElementById("tempCanvas");
+        var dcCtx = document.getElementById("dcCanvas");
+        tempChart = new Chart(tempCtx, {
+            type: 'line',
+            data: {
+                datasets: [
+                {
+                    label: 'Top heater temperature',
+                    borderColor: "#0ce861",
+                    data: []
+                }, 
+                {
+                    label: 'Bottom heater temperature',
+                    borderColor: "#f5646b",
+                    data: []
+                }]
+            },
+            options: {
+                legend: {display: true},
+
+            }
+        });
+
+        dcChart = new Chart(dcCtx, {
+            type: 'bar',
+            data: {
+                datasets: [
+                {
+                    label: 'Top duty cycle',
+                    backgroundColor: "#0ce861",
+                    data: []
+                }, 
+                {
+                    label: 'Bottom duty cycle',
+                    backgroundColor: "#f5646b",
+                    data: []
+                }]
+            },
+            options: {
+                legend: {display: true},
+            }
+        });
+
+        socket = new WebSocket(document.getElementById('url').value);
+        socket.binaryType = 'blob'
+
+        socket.addEventListener('open', function (event) {
+            console.log("opened")
+            //socket.send("opened");
+        });
+
+        socket.addEventListener('close', function (event) {
+            console.log("closed")
+            connected = false;
+            prepare_for_connect();
+        });
+        socket.onerror = function(error) {
+            alert("websocket error");
+        };
+
+        socket.addEventListener('message', function (event) {
+            if (event.data instanceof Blob) {
+                reader = new FileReader();
+                reader.onload = () => {
+                    //console.log(reader.result);
+                    draw(reader.result)
+                };
+                reader.readAsText(event.data);
+            } else {
+                //console.log(event.data);
+                draw(event.data)
+            }
+            
+        });
+    }
+} 
+
+</script>
+</html>

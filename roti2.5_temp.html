@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+ 
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="Chart.js"></script>
+    <title>Roti temp Chart</title>
+    <style type="text/css">
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+        }
+		label {
+		  background-color: black;
+		  color: white;
+		  font-family: Verdana, Arial, Helvetica, sans-serif;
+		}
+		/* Container for flexboxes */
+		section {
+		  display: -webkit-flex;
+		  display: flex;
+		}
+
+		/* Style the navigation menu */
+		nav {
+			-webkit-flex: 1;
+			-ms-flex: 1;
+			flex: 1;
+			padding: 20px;
+		}
+
+		/* Style the content */
+		article {
+			-webkit-flex: 3;
+			-ms-flex: 3;
+			flex: 3;
+			padding: 10px;
+		}
+
+    </style>
+</head>
+<body>
+    <div>
+        <div style="display:inline-block; vertical-align:top; display:flex; justify-content:center;">
+            <form>
+            <input type="text" id="url" value="ws://192.168.1.6:15234" />
+            <input type="submit" id="button" value="Connect" onclick="button_connect(); return false;" />
+            <input type="button" value="Save as CSV" onclick='downloadCSV({ filename: "chart.csv" }); return false;' />
+            </form>
+        </div>
+        </br>
+		<div style="display:inline-block; vertical-align:top; display:flex; justify-content:center;">
+		<table>
+			<tr>
+			<td>Choose a heater:</td>
+			<td>
+				<select name="heaters" id="heaters" style="width: 170px;">
+					<option>top_press</option>
+					<option>bottom_press</option>
+					<option>top_roast</option>
+					<option>bottom_roast</option>
+				</select>
+			</td>
+		  </tr>
+		  <tr>
+			<td>Choose a Coeff:</td>
+			<td>
+				<select name="coeffs" id="coeffs" style="width: 170px;">
+					<option>Coeff_A</option>
+					<option>Coeff_B</option>
+					<option>Coeff_C</option>
+				</select>
+			</td>
+		  </tr>
+		  <tr>
+			<td>Q16 Value:</td>
+			<td><input type="text" id="coeff_val" name="coeff_val" value="0"></td>
+		  </tr>
+		  <tr>
+		  <td></td>
+			<td><input type="button" value="Set Coeff" onclick='set_coeff(); return false;'>
+            <input type="button" value="Get Coeff" onclick='get_coeff(); return false;'></td>
+		  </tr>
+          <tr>
+		  <td>Set Temp/PIDBegin(C):</td>
+          <td><input type="set_temp" id="set_temp" name="set_temp" style="width: 30px;" value="100">
+            <input type="set_pidbegin" id="set_pidbegin" name="set_pidbegin" style="width: 30px;" value="0">
+            <input type="button" style="width: 30px;" value="ON" onclick='set_temp_on(); return false;'>
+            <input type="button" style="width: 40px;" value="OFF" onclick='set_temp_off(); return false;'>
+            <input type="button" style="width: 70px;" value="FAN ON" onclick='set_fan_on(); return false;'>
+            <input type="button" style="width: 70px;" value="FAN OFF" onclick='set_fan_off(); return false;'></td>
+		  </tr>
+          <tr>
+		  <td>Set Pin/Val:</td>
+          <td><input type="set_pin" id="set_pin" name="set_pin" style="width: 50px;" value="6">
+            <input type="set_val" id="set_val" name="set_val" style="width: 50px;" value="0">
+            <input type="button" style="width: 50px;" value="Set" onclick='set_pin(); return false;'></td>
+		  </tr>
+		</table>
+		
+		</div>
+	</div>
+	</br>
+	<section>
+	  <nav>
+		<div > 
+            <canvas id="pid_val"></canvas> 
+        </div>
+	  </nav>
+	  
+	  <article>
+        <div > 
+            <canvas id="press_temp"></canvas> 
+        </div>
+		
+        <div > 
+            <canvas id="roast_temp"></canvas> 
+        </div>
+	  </article>
+	</section>
+
+</body>
+<script>
+var websocket;
+var time_axis;
+var connected = false;
+var press_temp = null;
+var roast_temp = null;
+var pid_val = null;
+var startTime = new Date();
+var endTime = new Date();
+
+function prepare_for_connect() {
+    document.getElementById('url').disabled = false;
+    document.getElementById('button').value = "Connect";
+}
+
+function get_coeff() {
+	var heater_param = document.getElementById('heaters').value;
+    var coeff_param = document.getElementById('coeffs').value;
+    var coeff_val = document.getElementById('coeff_val').value;
+	console.log(heater_param, coeff_param, coeff_val);
+    websocket.send('{"command":0, "heater":"' + heater_param + '","coeff":"' + coeff_param + '","val":' + coeff_val + '}');
+}
+
+function set_coeff() {
+	var heater_param = document.getElementById('heaters').value;
+    var coeff_param = document.getElementById('coeffs').value;
+    var coeff_val = document.getElementById('coeff_val').value;
+	console.log(heater_param, coeff_param, coeff_val);
+    websocket.send('{"command":1, "heater":"' + heater_param + '","coeff":"' + coeff_param + '","val":' + coeff_val + '}');
+}
+
+function set_temp_on() {
+	var heater_param = document.getElementById('heaters').value;
+    var set_temp = document.getElementById('set_temp').value;
+    var set_pidbegin = document.getElementById('set_pidbegin').value;
+	console.log(heater_param, set_temp, set_pidbegin);
+    websocket.send('{"command":2, "heater":"' + heater_param + '","set_temp":' + set_temp + ',"set_pidbegin":' + set_pidbegin + '}');
+}
+
+function set_pin() {
+	var pin = document.getElementById('set_pin').value;
+    var val = document.getElementById('set_val').value;
+	console.log(set_pin, set_val);
+    websocket.send('{"command":3, "set_pin":"' + pin + '","set_val":' + val + '}');
+}
+
+function set_temp_off() {
+	var heater_param = document.getElementById('heaters').value;
+    var set_temp = document.getElementById('set_temp').value;
+    var set_pidbegin = document.getElementById('set_pidbegin').value;
+	console.log(heater_param, set_temp, set_pidbegin);
+    websocket.send('{"command":4, "heater":"' + heater_param + '","set_temp":' + set_temp + ',"set_pidbegin":' + set_pidbegin + '}');
+}
+
+function set_fan_on() {
+    websocket.send('{"command":5}');
+}
+function set_fan_off() {
+    websocket.send('{"command":6}');
+}
+
+convertArrayOfObjectsToCSV = () => {  
+    if (!press_temp.data.datasets[0].data.length || !press_temp.data.datasets[1].data.length) return;
+	if (!roast_temp.data.datasets[0].data.length || !roast_temp.data.datasets[1].data.length) return;
+	
+    const columnDelimiter = ',';
+    const lineDelimiter = '\n';
+    const keys = ["Top press temperature", "Bottom press temperature", "Top roast temperature", "Bottom roast temperature"];
+    let result = '';
+    result += keys.join(columnDelimiter);
+    result += lineDelimiter;
+    for (var i=0; i<press_temp.data.datasets[0].data.length; i++) {
+        result += press_temp.data.datasets[0].data[i]
+        result += columnDelimiter;
+        result += press_temp.data.datasets[1].data[i]
+        result += columnDelimiter;
+		
+		result += roast_temp.data.datasets[0].data[i]
+        result += columnDelimiter;
+        result += roast_temp.data.datasets[1].data[i]
+        result += lineDelimiter;
+    }
+    return result;
+}
+
+downloadCSV = args => {
+    let csv = convertArrayOfObjectsToCSV();
+    if (!csv) return;
+    const filename = args.filename || 'chart.csv';
+    if (!csv.match(/^data:text\/csv/i)) {
+        csv = 'data:text/csv;charset=utf-8,' + csv;
+    }
+    const data = encodeURI(csv);
+    const link = document.createElement('a');
+    link.setAttribute('href', data);
+    link.setAttribute('download', filename);
+    link.click();
+}
+
+function draw(data){
+    if(data.startsWith('coeffs')){
+        alert(data)
+    } else {
+        endTime = new Date();
+        if(endTime - startTime >= 1000){
+            startTime = endTime
+            const obj = JSON.parse(data);
+            top_press = obj["top_press"];
+            bottom_press = obj["bottom_press"];
+            top_press_ref = obj["top_press_ref"];
+            bottom_press_ref = obj["bottom_press_ref"];
+            
+            press_temp.data.datasets[0].data.push(parseFloat(top_press))
+            press_temp.data.datasets[1].data.push(parseFloat(bottom_press))
+            press_temp.data.datasets[2].data.push(parseFloat(top_press_ref))
+            press_temp.data.datasets[3].data.push(parseFloat(bottom_press_ref))
+            
+            press_temp.data.labels.push(time_axis)
+            press_temp.update();
+
+            
+            top_roast = obj["top_roast"];
+            bottom_roast = obj["bottom_roast"];
+            top_roast_ref = obj["top_roast_ref"];
+            bottom_roast_ref = obj["bottom_roast_ref"];
+            
+            roast_temp.data.datasets[0].data.push(parseFloat(top_roast))
+            roast_temp.data.datasets[1].data.push(parseFloat(bottom_roast))
+            roast_temp.data.datasets[2].data.push(parseFloat(top_roast_ref))
+            roast_temp.data.datasets[3].data.push(parseFloat(bottom_roast_ref))
+            
+            roast_temp.data.labels.push(time_axis)
+            
+            roast_temp.update();
+            
+            top_press_pid = obj["top_press_pid"];
+            bottom_press_pid = obj["bottom_press_pid"];
+            top_roast_pid = obj["top_roast_pid"];
+            bottom_roast_pid = obj["bottom_roast_pid"];
+            pid_val.data.datasets[0].data.push(parseFloat(top_press_pid))
+            pid_val.data.datasets[1].data.push(parseFloat(bottom_press_pid))
+            pid_val.data.datasets[2].data.push(parseFloat(top_roast_pid))
+            pid_val.data.datasets[3].data.push(parseFloat(bottom_roast_pid))
+            pid_val.data.labels.push(time_axis)
+            pid_val.update();
+            
+            time_axis ++;
+        }
+    }
+}
+
+function button_connect() {
+    if (connected) {
+        websocket.close();
+        connected = false;
+    } else {
+        document.getElementById('url').disabled = true;
+        document.getElementById('button').value = "Disconnect";
+        connected = true;
+        time_axis = 0;
+
+        if(press_temp!=null){
+            press_temp.destroy();
+            press_temp = null;
+        }
+        if(roast_temp!=null){
+            roast_temp.destroy();
+            roast_temp = null;
+        }
+        var press_temp_ctx = document.getElementById("press_temp");
+        var roast_temp_ctx = document.getElementById("roast_temp");
+		var pid_val_ctx = document.getElementById("pid_val");
+		
+        press_temp = new Chart(press_temp_ctx, {
+            type: 'line',
+            data: {
+                datasets: [
+                {
+                    label: 'Top press temperature',
+					borderWidth: 1,
+					pointRadius: 1,
+                    borderColor: "#0ce861",
+                    data: []
+                }, 
+                {
+                    label: 'Bottom press temperature',
+					borderWidth: 1,
+					pointRadius: 1,
+                    borderColor: "#f5646b",
+                    data: []
+                }, 
+                {
+                    label: 'Top press ref',
+					borderWidth: 1,
+					pointRadius: 1,
+                    borderColor: "#000000",
+                    data: []
+                }, 
+                {
+                    label: 'Bottom press ref',
+					borderWidth: 1,
+					pointRadius: 1,
+                    borderColor: "#000000",
+                    data: []
+                }]
+            },
+            options: {
+                legend: {display: true},
+
+            }
+        });
+
+        roast_temp = new Chart(roast_temp_ctx, {
+            type: 'line',
+            data: {
+                datasets: [
+                {
+                    label: 'Top roast cycle',
+					borderWidth: 1,
+					pointRadius: 1,
+                    borderColor: "#0ce861",
+                    data: []
+                }, 
+                {
+                    label: 'Bottom roast cycle',
+					borderWidth: 1,
+					pointRadius: 1,
+                    borderColor: "#f5646b",
+                    data: []
+                }, 
+                {
+                    label: 'Top roast ref',
+					borderWidth: 1,
+					pointRadius: 1,
+                    borderColor: "#000000",
+                    data: []
+                }, 
+                {
+                    label: 'Bottom roast ref',
+					borderWidth: 1,
+					pointRadius: 1,
+                    borderColor: "#000000",
+                    data: []
+                }]
+            },
+            options: {
+                legend: {display: true},
+            }
+        });
+		
+		pid_val = new Chart(pid_val_ctx, {
+            type: 'line',
+            data: {
+                datasets: [
+                {
+                    label: 'Top press pid',
+					borderWidth: 1,
+					pointRadius: 1,
+                    borderColor: "#0ce861",
+                    data: []
+                }, 
+                {
+                    label: 'Bottom press pid',
+					borderWidth: 1,
+					pointRadius: 1,
+                    borderColor: "#f5646b",
+                    data: []
+                }, 
+                {
+                    label: 'Top roast pid',
+					borderWidth: 1,
+					pointRadius: 1,
+                    borderColor: "#000fff",
+                    data: []
+                }, 
+                {
+                    label: 'Bottom roast pid',
+					borderWidth: 1,
+					pointRadius: 1,
+                    borderColor: "#fff000",
+                    data: []
+                }]
+            },
+            options: {
+                legend: {display: true},
+            }
+        });
+
+        websocket = new WebSocket(document.getElementById('url').value);
+        websocket.binaryType = 'blob'
+
+        websocket.addEventListener('open', function (event) {
+            console.log("opened")
+        });
+
+        websocket.addEventListener('close', function (event) {
+            console.log("closed")
+            connected = false;
+            prepare_for_connect();
+        });
+        websocket.onerror = function(error) {
+            alert("websocket error");
+        };
+
+        websocket.addEventListener('message', function (event) {
+            if (event.data instanceof Blob) {
+                reader = new FileReader();
+                reader.onload = () => {
+                    //console.log(reader.result);
+                    draw(reader.result)
+                };
+                reader.readAsText(event.data);
+            } else {
+                //console.log(event.data);
+                draw(event.data)
+            }
+            
+        });
+    }
+} 
+
+</script>
+</html>
