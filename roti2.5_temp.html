@@ -112,10 +112,6 @@
         <div > 
             <canvas id="press_temp"></canvas> 
         </div>
-		
-        <div > 
-            <canvas id="roast_temp"></canvas> 
-        </div>
 	  </article>
 	</section>
 
@@ -129,6 +125,7 @@ var roast_temp = null;
 var pid_val = null;
 var startTime = new Date();
 var endTime = new Date();
+var turn = 0;
 
 function prepare_for_connect() {
     document.getElementById('url').disabled = false;
@@ -196,8 +193,8 @@ convertArrayOfObjectsToCSV = () => {
         result += columnDelimiter;
         result += press_temp.data.datasets[1].data[i]
         result += columnDelimiter;
-		
-		result += roast_temp.data.datasets[0].data[i]
+
+        result += roast_temp.data.datasets[0].data[i]
         result += columnDelimiter;
         result += roast_temp.data.datasets[1].data[i]
         result += lineDelimiter;
@@ -232,28 +229,29 @@ function draw(data){
             top_press_ref = obj["top_press_ref"];
             bottom_press_ref = obj["bottom_press_ref"];
             
-            press_temp.data.datasets[0].data.push(parseFloat(top_press))
-            press_temp.data.datasets[1].data.push(parseFloat(bottom_press))
-            press_temp.data.datasets[2].data.push(parseFloat(top_press_ref))
-            press_temp.data.datasets[3].data.push(parseFloat(bottom_press_ref))
-            
-            press_temp.data.labels.push(time_axis)
-            press_temp.update();
-
-            
             top_roast = obj["top_roast"];
             bottom_roast = obj["bottom_roast"];
             top_roast_ref = obj["top_roast_ref"];
             bottom_roast_ref = obj["bottom_roast_ref"];
             
-            roast_temp.data.datasets[0].data.push(parseFloat(top_roast))
-            roast_temp.data.datasets[1].data.push(parseFloat(bottom_roast))
-            roast_temp.data.datasets[2].data.push(parseFloat(top_roast_ref))
-            roast_temp.data.datasets[3].data.push(parseFloat(bottom_roast_ref))
-            
-            roast_temp.data.labels.push(time_axis)
-            
-            roast_temp.update();
+            press_temp.data.datasets[0].data.push(parseFloat(top_press))
+            press_temp.data.datasets[1].data.push(parseFloat(bottom_press))
+            press_temp.data.datasets[2].data.push(parseFloat(top_roast))
+            press_temp.data.datasets[3].data.push(parseFloat(bottom_roast))
+            if(turn == 0){
+                press_temp.data.datasets[4].data.push(parseFloat(top_press_ref))
+            } else if(turn == 1){
+                press_temp.data.datasets[4].data.push(parseFloat(bottom_press_ref))
+            } else if(turn == 2){
+                press_temp.data.datasets[4].data.push(parseFloat(top_roast_ref))
+            } else if(turn == 3){
+                press_temp.data.datasets[4].data.push(parseFloat(bottom_roast_ref))
+            }
+            turn++;
+            if(turn == 4) turn = 0;
+
+            press_temp.data.labels.push(time_axis)
+            press_temp.update();
             
             top_press_pid = obj["top_press_pid"];
             bottom_press_pid = obj["bottom_press_pid"];
@@ -298,30 +296,38 @@ function button_connect() {
             data: {
                 datasets: [
                 {
-                    label: 'Top press temperature',
-					borderWidth: 1,
-					pointRadius: 1,
+                    label: 'Top press temp',
+                    borderWidth: 1,
+                    pointRadius: 1,
                     borderColor: "#0ce861",
                     data: []
                 }, 
                 {
-                    label: 'Bottom press temperature',
-					borderWidth: 1,
-					pointRadius: 1,
+                    label: 'Bottom press temp',
+                    borderWidth: 1,
+                    pointRadius: 1,
+                    borderColor: "#f5646b",
+                    data: []
+                },
+                {
+                    label: 'Top roast temp',
+                    borderWidth: 1,
+                    pointRadius: 1,
+                    borderColor: "#0ce861",
+                    data: []
+                }, 
+                {
+                    label: 'Bottom roast temp',
+                    borderWidth: 1,
+                    pointRadius: 1,
                     borderColor: "#f5646b",
                     data: []
                 }, 
                 {
-                    label: 'Top press ref',
-					borderWidth: 1,
-					pointRadius: 1,
-                    borderColor: "#000000",
-                    data: []
-                }, 
-                {
-                    label: 'Bottom press ref',
-					borderWidth: 1,
-					pointRadius: 1,
+                    type: 'scatter',
+                    label: 'Ref temp',
+                    borderWidth: 1,
+                    pointRadius: 1,
                     borderColor: "#000000",
                     data: []
                 }]
@@ -332,45 +338,7 @@ function button_connect() {
             }
         });
 
-        roast_temp = new Chart(roast_temp_ctx, {
-            type: 'line',
-            data: {
-                datasets: [
-                {
-                    label: 'Top roast cycle',
-					borderWidth: 1,
-					pointRadius: 1,
-                    borderColor: "#0ce861",
-                    data: []
-                }, 
-                {
-                    label: 'Bottom roast cycle',
-					borderWidth: 1,
-					pointRadius: 1,
-                    borderColor: "#f5646b",
-                    data: []
-                }, 
-                {
-                    label: 'Top roast ref',
-					borderWidth: 1,
-					pointRadius: 1,
-                    borderColor: "#000000",
-                    data: []
-                }, 
-                {
-                    label: 'Bottom roast ref',
-					borderWidth: 1,
-					pointRadius: 1,
-                    borderColor: "#000000",
-                    data: []
-                }]
-            },
-            options: {
-                legend: {display: true},
-            }
-        });
-		
-		pid_val = new Chart(pid_val_ctx, {
+        pid_val = new Chart(pid_val_ctx, {
             type: 'line',
             data: {
                 datasets: [
