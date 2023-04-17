@@ -180,11 +180,10 @@ function set_fan_off() {
 
 convertArrayOfObjectsToCSV = () => {  
     if (!press_temp.data.datasets[0].data.length || !press_temp.data.datasets[1].data.length) return;
-	if (!roast_temp.data.datasets[0].data.length || !roast_temp.data.datasets[1].data.length) return;
-	
+
     const columnDelimiter = ',';
     const lineDelimiter = '\n';
-    const keys = ["Top press temperature", "Bottom press temperature", "Top roast temperature", "Bottom roast temperature"];
+    const keys = ["Top press temp", "Bottom press temp", "Top roast temp", "Bottom roast temp"];
     let result = '';
     result += keys.join(columnDelimiter);
     result += lineDelimiter;
@@ -193,10 +192,9 @@ convertArrayOfObjectsToCSV = () => {
         result += columnDelimiter;
         result += press_temp.data.datasets[1].data[i]
         result += columnDelimiter;
-
-        result += roast_temp.data.datasets[0].data[i]
+        result += press_temp.data.datasets[2].data[i]
         result += columnDelimiter;
-        result += roast_temp.data.datasets[1].data[i]
+        result += press_temp.data.datasets[3].data[i]
         result += lineDelimiter;
     }
     return result;
@@ -313,14 +311,14 @@ function button_connect() {
                     label: 'Top roast temp',
                     borderWidth: 1,
                     pointRadius: 1,
-                    borderColor: "#0ce861",
+                    borderColor: "#000fff",
                     data: []
                 }, 
                 {
                     label: 'Bottom roast temp',
                     borderWidth: 1,
                     pointRadius: 1,
-                    borderColor: "#f5646b",
+                    borderColor: "#fff000",
                     data: []
                 }, 
                 {
