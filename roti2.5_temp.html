@@ -46,6 +46,7 @@
             <input type="text" id="url" value="ws://192.168.1.6:15234" />
             <input type="submit" id="button" value="Connect" onclick="button_connect(); return false;" />
             <input type="button" value="Save as CSV" onclick='downloadCSV({ filename: "chart.csv" }); return false;' />
+            <input type="submit" id="button" value="Clear Chart" onclick="button_clear(); return false;" />
             </form>
         </div>
         </br>
@@ -85,6 +86,7 @@
 		  <td>Set Temp/PIDBegin(C):</td>
           <td><input type="set_temp" id="set_temp" name="set_temp" style="width: 30px;" value="100">
             <input type="set_pidbegin" id="set_pidbegin" name="set_pidbegin" style="width: 30px;" value="0">
+            <input type="set_maxon" id="set_maxon" name="set_maxon" style="width: 30px;" value="0">
             <input type="button" style="width: 30px;" value="ON" onclick='set_temp_on(); return false;'>
             <input type="button" style="width: 40px;" value="OFF" onclick='set_temp_off(); return false;'>
             <input type="button" style="width: 70px;" value="FAN ON" onclick='set_fan_on(); return false;'>
@@ -152,8 +154,9 @@ function set_temp_on() {
 	var heater_param = document.getElementById('heaters').value;
     var set_temp = document.getElementById('set_temp').value;
     var set_pidbegin = document.getElementById('set_pidbegin').value;
-	console.log(heater_param, set_temp, set_pidbegin);
-    websocket.send('{"command":2, "heater":"' + heater_param + '","set_temp":' + set_temp + ',"set_pidbegin":' + set_pidbegin + '}');
+    var set_maxon = document.getElementById('set_maxon').value;
+    console.log(heater_param, set_temp, set_pidbegin, set_maxon);
+    websocket.send('{"command":2, "heater":"' + heater_param + '","set_temp":' + set_temp + ',"set_pidbegin":' + set_pidbegin + ',"set_maxon":' + set_maxon +'}');
 }
 
 function set_pin() {
@@ -167,8 +170,8 @@ function set_temp_off() {
 	var heater_param = document.getElementById('heaters').value;
     var set_temp = document.getElementById('set_temp').value;
     var set_pidbegin = document.getElementById('set_pidbegin').value;
-	console.log(heater_param, set_temp, set_pidbegin);
-    websocket.send('{"command":4, "heater":"' + heater_param + '","set_temp":' + set_temp + ',"set_pidbegin":' + set_pidbegin + '}');
+    var set_maxon = document.getElementById('set_maxon').value;
+    websocket.send('{"command":4, "heater":"' + heater_param + '","set_temp":' + set_temp + ',"set_pidbegin":' + set_pidbegin + ',"set_maxon":' + set_maxon +'}');
 }
 
 function set_fan_on() {
@@ -198,6 +201,25 @@ convertArrayOfObjectsToCSV = () => {
         result += lineDelimiter;
     }
     return result;
+}
+function button_clear(){
+    press_temp.data.datasets[0].data = []
+    press_temp.data.datasets[1].data = []
+    press_temp.data.datasets[2].data = []
+    press_temp.data.datasets[3].data = []
+    press_temp.data.datasets[4].data = []
+
+    press_temp.data.labels = []
+    press_temp.update();
+
+    pid_val.data.datasets[0].data = []
+    pid_val.data.datasets[1].data = []
+    pid_val.data.datasets[2].data = []
+    pid_val.data.datasets[3].data = []
+    pid_val.data.labels = []
+    pid_val.update();
+    
+    time_axis = 0;
 }
 
 downloadCSV = args => {
