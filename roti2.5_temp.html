@@ -38,86 +38,6 @@
 		}
 
     </style>
-</head>
-<body>
-    <div>
-        <div style="display:inline-block; vertical-align:top; display:flex; justify-content:center;">
-            <form>
-            <input type="text" id="url" value="ws://192.168.1.6:15234" />
-            <input type="submit" id="button" value="Connect" onclick="button_connect(); return false;" />
-            <input type="button" value="Save as CSV" onclick='downloadCSV({ filename: "chart.csv" }); return false;' />
-            <input type="submit" id="button" value="Clear Chart" onclick="button_clear(); return false;" />
-            </form>
-        </div>
-        </br>
-		<div style="display:inline-block; vertical-align:top; display:flex; justify-content:center;">
-		<table>
-			<tr>
-			<td>Choose a heater:</td>
-			<td>
-				<select name="heaters" id="heaters" style="width: 170px;">
-					<option>top_press</option>
-					<option>bottom_press</option>
-					<option>top_roast</option>
-					<option>bottom_roast</option>
-				</select>
-			</td>
-		  </tr>
-		  <tr>
-			<td>Choose a Coeff:</td>
-			<td>
-				<select name="coeffs" id="coeffs" style="width: 170px;">
-					<option>Coeff_A</option>
-					<option>Coeff_B</option>
-					<option>Coeff_C</option>
-				</select>
-			</td>
-		  </tr>
-		  <tr>
-			<td>Q16 Value:</td>
-			<td><input type="text" id="coeff_val" name="coeff_val" value="0"></td>
-		  </tr>
-		  <tr>
-		  <td></td>
-			<td><input type="button" value="Set Coeff" onclick='set_coeff(); return false;'>
-            <input type="button" value="Get Coeff" onclick='get_coeff(); return false;'></td>
-		  </tr>
-          <tr>
-		  <td>Set Temp/PIDBegin(C):</td>
-          <td><input type="set_temp" id="set_temp" name="set_temp" style="width: 30px;" value="100">
-            <input type="set_pidbegin" id="set_pidbegin" name="set_pidbegin" style="width: 30px;" value="0">
-            <input type="set_maxon" id="set_maxon" name="set_maxon" style="width: 30px;" value="0">
-            <input type="button" style="width: 30px;" value="ON" onclick='set_temp_on(); return false;'>
-            <input type="button" style="width: 40px;" value="OFF" onclick='set_temp_off(); return false;'>
-            <input type="button" style="width: 70px;" value="FAN ON" onclick='set_fan_on(); return false;'>
-            <input type="button" style="width: 70px;" value="FAN OFF" onclick='set_fan_off(); return false;'></td>
-		  </tr>
-          <tr>
-		  <td>Set Pin/Val:</td>
-          <td><input type="set_pin" id="set_pin" name="set_pin" style="width: 50px;" value="6">
-            <input type="set_val" id="set_val" name="set_val" style="width: 50px;" value="0">
-            <input type="button" style="width: 50px;" value="Set" onclick='set_pin(); return false;'></td>
-		  </tr>
-		</table>
-		
-		</div>
-	</div>
-	</br>
-	<section>
-	  <nav>
-		<div > 
-            <canvas id="pid_val"></canvas> 
-        </div>
-	  </nav>
-	  
-	  <article>
-        <div > 
-            <canvas id="press_temp"></canvas> 
-        </div>
-	  </article>
-	</section>
-
-</body>
 <script>
 var websocket;
 var time_axis;
@@ -181,6 +101,25 @@ function set_fan_off() {
     websocket.send('{"command":6}');
 }
 
+function onTimerElapsed() {
+    var today = new Date();
+    var date = today.getFullYear()+'-'+(today.getMonth()+1)+'-'+today.getDate();
+    var time = today.getHours() + "-" + today.getMinutes() + "-" + today.getSeconds();
+    var dateTime = date+'-'+time;
+    const filename = dateTime + ".csv";
+    let csv = convertArrayOfObjectsToCSV();
+    if (!csv) return;
+    if (!csv.match(/^data:text\/csv/i)) {
+        csv = 'data:text/csv;charset=utf-8,' + csv;
+    }
+    const data = encodeURI(csv);
+    const link = document.createElement('a');
+    link.setAttribute('href', data);
+    link.setAttribute('download', filename);
+    link.click();
+    button_clear();
+}
+    
 convertArrayOfObjectsToCSV = () => {  
     if (!press_temp.data.datasets[0].data.length || !press_temp.data.datasets[1].data.length) return;
 
@@ -428,6 +367,85 @@ function button_connect() {
         });
     }
 } 
-
 </script>
+</head>
+<body onload="setInterval(onTimerElapsed, 30 * 60 * 1000)">
+    <div>
+        <div style="display:inline-block; vertical-align:top; display:flex; justify-content:center;">
+            <form>
+            <input type="text" id="url" value="ws://192.168.1.8:15234" />
+            <input type="submit" id="button" value="Connect" onclick="button_connect(); return false;" />
+            <input type="button" value="Save as CSV" onclick='downloadCSV({ filename: "chart.csv" }); return false;' />
+            <input type="submit" id="button" value="Clear Chart" onclick="button_clear(); return false;" />
+            </form>
+        </div>
+        </br>
+		<div style="display:inline-block; vertical-align:top; display:flex; justify-content:center;">
+		<table>
+			<tr>
+			<td>Choose a heater:</td>
+			<td>
+				<select name="heaters" id="heaters" style="width: 170px;">
+					<option>top_press</option>
+					<option>bottom_press</option>
+					<option>top_roast</option>
+					<option>bottom_roast</option>
+				</select>
+			</td>
+		  </tr>
+		  <tr>
+			<td>Choose a Coeff:</td>
+			<td>
+				<select name="coeffs" id="coeffs" style="width: 170px;">
+					<option>Coeff_A</option>
+					<option>Coeff_B</option>
+					<option>Coeff_C</option>
+				</select>
+			</td>
+		  </tr>
+		  <tr>
+			<td>Q16 Value:</td>
+			<td><input type="text" id="coeff_val" name="coeff_val" value="0"></td>
+		  </tr>
+		  <tr>
+		  <td></td>
+			<td><input type="button" value="Set Coeff" onclick='set_coeff(); return false;'>
+            <input type="button" value="Get Coeff" onclick='get_coeff(); return false;'></td>
+		  </tr>
+          <tr>
+		  <td>Set Temp/PIDBegin(C):</td>
+          <td><input type="set_temp" id="set_temp" name="set_temp" style="width: 30px;" value="100">
+            <input type="set_pidbegin" id="set_pidbegin" name="set_pidbegin" style="width: 30px;" value="0">
+            <input type="set_maxon" id="set_maxon" name="set_maxon" style="width: 30px;" value="30">
+            <input type="button" style="width: 30px;" value="ON" onclick='set_temp_on(); return false;'>
+            <input type="button" style="width: 40px;" value="OFF" onclick='set_temp_off(); return false;'>
+            <input type="button" style="width: 70px;" value="FAN ON" onclick='set_fan_on(); return false;'>
+            <input type="button" style="width: 70px;" value="FAN OFF" onclick='set_fan_off(); return false;'></td>
+		  </tr>
+          <tr>
+		  <td>Set Pin/Val:</td>
+          <td><input type="set_pin" id="set_pin" name="set_pin" style="width: 50px;" value="6">
+            <input type="set_val" id="set_val" name="set_val" style="width: 50px;" value="0">
+            <input type="button" style="width: 50px;" value="Set" onclick='set_pin(); return false;'></td>
+		  </tr>
+		</table>
+		
+		</div>
+	</div>
+	</br>
+	<section>
+	  <nav>
+		<div > 
+            <canvas id="pid_val"></canvas> 
+        </div>
+	  </nav>
+	  
+	  <article>
+        <div > 
+            <canvas id="press_temp"></canvas> 
+        </div>
+	  </article>
+	</section>
+
+</body>
 </html>
