@@ -117,7 +117,7 @@ function onTimerElapsed() {
     link.setAttribute('href', data);
     link.setAttribute('download', filename);
     link.click();
-    button_clear();
+    button_clear(false);
 }
     
 convertArrayOfObjectsToCSV = () => {  
@@ -141,7 +141,7 @@ convertArrayOfObjectsToCSV = () => {
     }
     return result;
 }
-function button_clear(){
+function button_clear(reset_time){
     press_temp.data.datasets[0].data = []
     press_temp.data.datasets[1].data = []
     press_temp.data.datasets[2].data = []
@@ -157,8 +157,7 @@ function button_clear(){
     pid_val.data.datasets[3].data = []
     pid_val.data.labels = []
     pid_val.update();
-    
-    time_axis = 0;
+    if(reset_time == true) time_axis = 0;
 }
 
 downloadCSV = args => {
@@ -369,14 +368,15 @@ function button_connect() {
 } 
 </script>
 </head>
-<body onload="setInterval(onTimerElapsed, 30 * 60 * 1000)">
+<!-- <body onload="setInterval(onTimerElapsed, 30 * 60 * 1000)"> -->
+<body>
     <div>
         <div style="display:inline-block; vertical-align:top; display:flex; justify-content:center;">
             <form>
             <input type="text" id="url" value="ws://192.168.1.8:15234" />
             <input type="submit" id="button" value="Connect" onclick="button_connect(); return false;" />
             <input type="button" value="Save as CSV" onclick='downloadCSV({ filename: "chart.csv" }); return false;' />
-            <input type="submit" id="button" value="Clear Chart" onclick="button_clear(); return false;" />
+            <input type="submit" id="button" value="Clear Chart" onclick="button_clear(true); return false;" />
             </form>
         </div>
         </br>
